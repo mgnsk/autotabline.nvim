@@ -117,4 +117,10 @@ function _G.autotabline()
 	return table.concat(tabline, "")
 end
 
-vim.opt.tabline = "%!v:lua.autotabline()"
+local M = {}
+
+function M.setup()
+	vim.opt.tabline = "%!v:lua.autotabline()"
+end
+
+return M
