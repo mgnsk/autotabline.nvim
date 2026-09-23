@@ -67,8 +67,12 @@ function _G.autotabline()
 			table.insert(tab, "[New]")
 			table.insert(tabtext, "[New]")
 		else
-			table.insert(tab, table.concat(name, ""))
-			table.insert(tabtext, table.concat(name, ""))
+			local text = table.concat(name, "")
+			-- Escape literal '%' so filenames aren't reinterpreted as tabline format
+			-- items (e.g. a name containing "%{...}" would otherwise be evaluated as
+			-- a Vim expression when the tabline is rendered).
+			table.insert(tab, (text:gsub("%%", "%%%%")))
+			table.insert(tabtext, text)
 		end
 
 		table.insert(tabline, table.concat(tab, ""))
@@ -82,21 +86,26 @@ function _G.autotabline()
 	local tabend = vim.fn.tabpagenr("$")
 	local tabpage = vim.fn.tabpagenr()
 
-	local function getlen()
-		local n = 0
-		for _, v in ipairs(tabtexts) do
-			n = n + string.len(v)
-		end
-		return n
+	-- Use display width rather than byte length: multi-byte UTF-8 tab labels
+	-- (accented names, CJK, emoji) would otherwise be measured inaccurately
+	-- against vim.go.columns, which counts display cells.
+	local total_len = 0
+	for _, v in ipairs(tabtexts) do
+		total_len = total_len + vim.fn.strdisplaywidth(v)
 	end
 
-	while getlen() + string.len(prefix) + string.len(suffix) > vim.go.columns do
+	-- Keep at least the current tab: without this floor, a single tab whose
+	-- own text doesn't fit would get pruned away entirely, leaving no tab
+	-- number or name on screen for the active tab.
+	while #tabline > 1 and total_len + vim.fn.strdisplaywidth(prefix) + vim.fn.strdisplaywidth(suffix) > vim.go.columns do
 		if tabend - tabpage > tabpage - tabstart then
+			total_len = total_len - vim.fn.strdisplaywidth(tabtexts[#tabtexts])
 			tabline = { unpack(tabline, 1, #tabline - 1) } -- Remove one tab from right.
 			tabtexts = { unpack(tabtexts, 1, #tabtexts - 1) }
 			suffix = "···"
 			tabend = tabend - 1
 		else
+			total_len = total_len - vim.fn.strdisplaywidth(tabtexts[1])
 			tabline = { unpack(tabline, 2, #tabline) } -- Remove one tab from left.
 			tabtexts = { unpack(tabtexts, 2, #tabtexts) }
 			prefix = "···"

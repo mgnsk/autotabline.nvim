@@ -53,6 +53,11 @@ describe("autotabline", function()
 			local expected_label = "[T]" .. vim.fn.pathshorten(vim.split(bufname, "//")[2])
 			assert.are.same("%#TabLineSel#%1T 1 " .. expected_label .. " %#TabLineFill#%T", _G.autotabline())
 		end)
+
+		it("escapes a literal '%' in a buffer name instead of treating it as a tabline format item", function()
+			vim.api.nvim_buf_set_name(0, "/tmp/x%{1+1}y.lua")
+			assert.are.same("%#TabLineSel#%1T 1 /t/x%%{1+1}y.lua %#TabLineFill#%T", _G.autotabline())
+		end)
 	end)
 
 	describe("multiple tabs", function()
@@ -88,6 +93,15 @@ describe("autotabline", function()
 			assert.truthy(result:find("···", 1, true))
 			assert.falsy(result:find("file1.lua", 1, true))
 			assert.truthy(result:find("file5.lua", 1, true))
+		end)
+
+		it("never fully drops the current tab, even when its own text can't fit", function()
+			utils.reset()
+			vim.cmd("edit /a.lua")
+			utils.open_tab(string.format("/%s.lua", string.rep("b", 100)))
+			vim.go.columns = 12
+			local result = _G.autotabline()
+			assert.truthy(result:find("%2T", 1, true))
 		end)
 	end)
 
